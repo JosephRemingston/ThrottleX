@@ -17,10 +17,7 @@
     "ioredis-mock": "^8.13.1",
     "jest": "^30.2.0",
     "prettier": "^3.8.1",
-    "supertest": "^7.2.2",
-    "ts-jest": "^29.4.6",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "supertest": "^7.2.2"
   },
   "dependencies": {
     "ioredis": "^5.9.3"
