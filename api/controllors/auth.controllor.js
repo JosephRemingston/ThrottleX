@@ -56,5 +56,3 @@ export var register = asyncHandler(async (req, res) => {
         }
     });
 });
-
-export { register };
