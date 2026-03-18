@@ -4,7 +4,7 @@ import ApiError from "../utils/ApiError.js";
 import Tenant from "../models/tenant.models.js";
 import { generateApiKey } from "../utils/generateApiKey.js";
 
-const register = asyncHandler(async (req, res) => {
+export var register = asyncHandler(async (req, res) => {
     const { name, email, accountType } = req.body;
 
     if (!name || !name.trim()) {

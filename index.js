@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import connectDB from './database/database.js';
+import authRoutes from './routes/auth.routes.js';
 
 const app = express();
 
@@ -9,6 +10,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use("/api//auth" , authRoutes);
 
 // Routes
 app.get('/', (req, res) => {
