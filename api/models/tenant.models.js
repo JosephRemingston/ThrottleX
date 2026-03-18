@@ -27,27 +27,6 @@ const TenantSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  },
-  config: {
-    model: {
-      type: String,
-      enum: aiModels ? Object.keys(aiModels) : [],
-      default: 'gpt-4'
-    },
-    systemPrompt: {
-      type: String,
-      default: 'You are a helpful assistant.'
-    },
-    temperature: {
-      type: Number,
-      min: 0,
-      max: 1,
-      default: 0.7
-    },
-    tokenBudget: {
-      type: Number,
-      default: 100000
-    }
   }
 }, { timestamps: true });
 

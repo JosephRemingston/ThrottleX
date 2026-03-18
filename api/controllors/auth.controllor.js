@@ -37,13 +37,12 @@ const register = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Invalid account type. Must be "test" or "live".');
     }
 
-    const { apiKey } = generateApiKey({ prefix });
-
     const tenant = await Tenant.create({
         name: normalizedName,
         email: normalizedEmail,
         accountType,
-        apiKey,
+        isActive: false,
+        apiKey : null,
     });
 
     return ApiResponse.success(res, "Tenant registered successfully", {
@@ -54,8 +53,7 @@ const register = asyncHandler(async (req, res) => {
             accountType: tenant.accountType,
             isActive: tenant.isActive,
             createdAt: tenant.createdAt,
-        },
-        apiKey,
+        }
     });
 });
 
