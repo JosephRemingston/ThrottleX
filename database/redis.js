@@ -21,4 +21,17 @@ redis.on('error', (err) => {
   console.error('Redis connection error:', err);
 });
 
+export const storeOTP = async (email, otp) => {
+  await redis.set(
+    `otp:${email}`,
+    otp,
+    "EX",
+    300 // 5 minutes expiry
+  );
+};
+
+export const getOTP = async (email) => {
+  return await redis.get(`otp:${email}`);
+};
+
 export default redis;

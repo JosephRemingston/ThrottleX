@@ -2,7 +2,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import { verifyAccessToken, isTokenBlacklisted } from '../../redis/jwt.js';
-import { User } from '../models/user.models.js';
+import Tenant from '../models/tenant.models.js';
 
 export const authenticate = asyncHandler(async (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -24,11 +24,11 @@ export const authenticate = asyncHandler(async (req, res, next) => {
   }
 
   // Get user from database
-  const user = await User.findById(decoded.userId).select('-password -refreshToken');
-  if (!user) {
+  const tenant = await Tenant.findById(decoded._id).select('-password -refreshToken');
+  if (!tenant) {
     return ApiResponse.badRequest(res, 'User not found');
   }
 
-  req.user = user;
+  req.tenant = tenat;
   next();
 });
