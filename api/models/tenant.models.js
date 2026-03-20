@@ -24,7 +24,7 @@ const TenantSchema = new mongoose.Schema({
     type: String,
     unique: true
   },
-  isActive: {
+  isVerified: {
     type: Boolean,
     default: true
   },
@@ -34,11 +34,10 @@ const TenantSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-TenantSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+TenantSchema.pre('save', async function() {
+  if (!this.isModified('password')) return;
 
   this.password = await bcrypt.hash(this.password, 10);
-  next();
 });
 
 

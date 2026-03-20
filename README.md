@@ -1,11 +1,15 @@
 # ThrottleX API
 
-ThrottleX is a Node.js + Express authentication API with:
-- tenant registration and login
-- JWT access + refresh token flow
-- Redis-backed refresh token storage
-- MongoDB-backed tenant persistence
-- request rate limiting
+ThrottleX is an Express API for tenant authentication and OTP verification with Redis-backed token/session state and MongoDB persistence.
+
+## Features
+
+- Tenant register/login flow
+- JWT access token + refresh token cookie flow
+- Refresh token rotation stored in Redis
+- OTP send and verify endpoints
+- Protected tenant profile endpoint
+- Global and route-level rate limiting
 
 ## Tech Stack
 
@@ -14,15 +18,19 @@ ThrottleX is a Node.js + Express authentication API with:
 - MongoDB + Mongoose
 - Redis (ioredis)
 - JWT (jsonwebtoken)
+- AWS SES SDK (OTP email)
 
 ## Project Structure
 
-```
+```text
 .
 |-- index.js
+|-- README.md
+|-- ThrottleX.postman_collection.json
 |-- api/
 |   |-- controllors/
 |   |   |-- auth.controllor.js
+|   |   |-- tenant.controllor.js
 |   |-- middleware/
 |   |   |-- auth.middleware.js
 |   |   |-- ratelimiter.middleware.js
@@ -30,10 +38,13 @@ ThrottleX is a Node.js + Express authentication API with:
 |   |   |-- tenant.models.js
 |   |-- routes/
 |   |   |-- auth.routes.js
+|   |   |-- tenant.routes.js
 |   |-- utils/
 |       |-- ApiError.js
 |       |-- ApiResponse.js
 |       |-- asyncHandler.js
+|-- aws/
+|   |-- ses.js
 |-- database/
 |   |-- database.js
 |   |-- redis.js
@@ -47,6 +58,7 @@ ThrottleX is a Node.js + Express authentication API with:
 - Node.js 18+
 - MongoDB instance
 - Redis instance
+- AWS SES credentials (for OTP email delivery)
 
 ## Environment Variables
 
@@ -54,9 +66,11 @@ Create a `.env` file in the project root:
 
 ```env
 PORT=3000
+
+# MongoDB
 MONGO_URI=mongodb://localhost:27017/throttlex
 
-# Comma-separated list of allowed origins for CORS
+# CORS (comma-separated)
 CORS_ORIGIN=http://localhost:5173
 
 # Redis
@@ -64,13 +78,19 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
-# JWT secrets (set strong random values in real environments)
+# JWT (set strong random values)
 ACCESS_TOKEN_SECRET=replace-with-a-strong-secret
 REFRESH_TOKEN_SECRET=replace-with-a-strong-secret
+
+# AWS SES
+AWS_ACCESS_KEY_ID=your-access-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-access-key
 
 # Optional
 NODE_ENV=development
 ```
+
+Note: OTP sender address is currently hardcoded in `aws/ses.js` (`Source` field).
 
 ## Install and Run
 
@@ -85,93 +105,30 @@ Production mode:
 npm start
 ```
 
-Server default URL:
+Default server URL:
 
 ```text
 http://localhost:3000
 ```
 
-## API Base URL
+## Route Mounts
 
-All auth endpoints are mounted under:
+- Auth routes: `/api/auth`
+- Tenant routes: `/api/tenant`
 
-```text
-/api/auth
-```
+## API Endpoints
 
-So for local development:
-
-```text
-http://localhost:3000/api/auth
-```
-
-## Response Format
-
-Success responses generally use:
-
-```json
-{
-  "statusCode": 200,
-  "message": "...",
-  "data": {}
-}
-```
-
-Validation and runtime errors are returned by `asyncHandler` and include details such as:
-
-```json
-{
-  "message": "...",
-  "cause": [],
-  "error": {},
-  "icon": "error"
-}
-```
-
-Rate-limit responses return the configured limiter message.
-
-## Rate Limits
-
-- Global API limiter: 1000 requests per IP per 60 minutes
-- Register limiter: 5 requests per IP per 15 minutes
-- Login limiter: 10 requests per IP per 10 minutes
-
-## Authentication and Token Flow
-
-1. Register tenant.
-2. Login with email/password.
-3. Receive:
-   - `accessToken` in JSON response
-   - `refreshToken` in an `HttpOnly` cookie
-4. Send `Authorization: Bearer <accessToken>` to protected endpoints.
-5. When access token expires, call `POST /api/auth/refresh` with cookies included.
-6. On logout, server deletes refresh token in Redis and clears cookie.
-
-Important:
-- Frontend must send cookies with `credentials: "include"` (fetch) or `withCredentials: true` (Axios) for refresh/logout.
-- If frontend runs on a different origin, ensure it is included in `CORS_ORIGIN`.
-
-## Endpoint Usage
-
-### 1) Health/Welcome
+### Health
 
 - Method: `GET`
 - Path: `/`
-- Description: service welcome endpoint
 
-Example:
+### Auth
 
-```bash
-curl -X GET http://localhost:3000/
-```
-
-### 2) Register
-
-- Method: `POST`
-- Path: `/api/auth/register`
-- Rate limit: 5 requests / 15 minutes per IP
-
-Request body:
+1. Register
+   - Method: `POST`
+   - Path: `/api/auth/register`
+   - Body:
 
 ```json
 {
@@ -182,30 +139,10 @@ Request body:
 }
 ```
 
-Rules:
-- `name`, `email`, `password` are required
-- `accountType` must be `test` or `live`
-
-Example:
-
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Acme Inc",
-    "email": "owner@acme.com",
-    "password": "StrongPass123!",
-    "accountType": "test"
-  }'
-```
-
-### 3) Login
-
-- Method: `POST`
-- Path: `/api/auth/login`
-- Rate limit: 10 requests / 10 minutes per IP
-
-Request body:
+2. Login
+   - Method: `POST`
+   - Path: `/api/auth/login`
+   - Body:
 
 ```json
 {
@@ -214,176 +151,110 @@ Request body:
 }
 ```
 
-Response includes:
-- `accessToken` in response body
-- `refreshToken` in `HttpOnly` cookie
+3. Refresh access token
+   - Method: `POST`
+   - Path: `/api/auth/refresh`
+   - Requires: `refreshToken` cookie
 
-Example:
+4. Logout
+   - Method: `POST`
+   - Path: `/api/auth/logout`
+   - Uses refresh cookie when present
 
-```bash
-curl -i -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "owner@acme.com",
-    "password": "StrongPass123!"
-  }'
-```
+### Tenant
 
-### 4) Refresh Access Token
+1. Send OTP
+   - Method: `POST`
+   - Path: `/api/tenant/send`
+   - Requires: `Authorization: Bearer <accessToken>`
 
-- Method: `POST`
-- Path: `/api/auth/refresh`
-- Requires: `refreshToken` cookie
+2. Verify OTP
+   - Method: `POST`
+   - Path: `/api/tenant/verify`
+   - Requires: `Authorization: Bearer <accessToken>`
+   - Body:
 
-Behavior:
-- verifies refresh token
-- validates token against Redis
-- rotates refresh token
-- sets a new refresh cookie
-- returns a new access token
-
-Example:
-
-```bash
-curl -X POST http://localhost:3000/api/auth/refresh \
-  -H "Content-Type: application/json" \
-  --cookie "refreshToken=<your-refresh-token>"
-```
-
-### 5) Logout
-
-- Method: `POST`
-- Path: `/api/auth/logout`
-- Requires: refresh cookie (if absent, returns success anyway)
-
-Behavior:
-- deletes refresh token from Redis (when decodable)
-- clears refresh cookie
-
-Example:
-
-```bash
-curl -X POST http://localhost:3000/api/auth/logout \
-  --cookie "refreshToken=<your-refresh-token>"
-```
-
-## Frontend Integration Guide
-
-### Using Fetch
-
-```js
-const API_BASE = "http://localhost:3000/api/auth";
-let accessToken = null;
-
-export async function login(email, password) {
-  const res = await fetch(`${API_BASE}/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include", // required for refresh cookie
-    body: JSON.stringify({ email, password })
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Login failed");
-  accessToken = data?.data?.accessToken;
-  return data;
-}
-
-export async function refreshAccessToken() {
-  const res = await fetch(`${API_BASE}/refresh`, {
-    method: "POST",
-    credentials: "include"
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Refresh failed");
-  accessToken = data?.data?.accessToken;
-  return accessToken;
-}
-
-export async function apiRequest(url, options = {}) {
-  const headers = {
-    ...(options.headers || {}),
-    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
-  };
-
-  let res = await fetch(url, { ...options, headers, credentials: "include" });
-
-  // Retry once after refresh on 401
-  if (res.status === 401) {
-    await refreshAccessToken();
-    const retryHeaders = {
-      ...(options.headers || {}),
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
-    };
-    res = await fetch(url, {
-      ...options,
-      headers: retryHeaders,
-      credentials: "include"
-    });
-  }
-
-  return res;
+```json
+{
+  "otp": "123456"
 }
 ```
 
-### Using Axios
+3. Tenant profile
+   - Method: `GET`
+   - Path: `/api/tenant/profile`
+   - Requires: `Authorization: Bearer <accessToken>`
 
-```js
-import axios from "axios";
+## Response Shape
 
-const authApi = axios.create({
-  baseURL: "http://localhost:3000/api/auth",
-  withCredentials: true
-});
+Success responses are returned as:
 
-let accessToken = null;
-
-authApi.interceptors.request.use((config) => {
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
-  }
-  return config;
-});
-
-authApi.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      const refreshRes = await authApi.post("/refresh");
-      accessToken = refreshRes.data?.data?.accessToken;
-
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-      return authApi(originalRequest);
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-export default authApi;
+```json
+{
+  "statusCode": 200,
+  "message": "...",
+  "data": {}
+}
 ```
+
+Unhandled/runtime errors from the async wrapper are returned as:
+
+```json
+{
+  "statusCode": 510,
+  "message": "Error in Code Base, Programmer Error",
+  "problem": "...",
+  "error": [],
+  "icon": "error"
+}
+```
+
+## Rate Limits
+
+- Global API limiter: 1000 requests/IP per 60 minutes
+- Register: 5 requests/IP per 15 minutes
+- Login: 10 requests/IP per 10 minutes
+- OTP send: 3 requests/IP per 10 minutes
+- OTP verify: 10 requests/IP per 10 minutes
+
+## Postman Collection
+
+Import `ThrottleX.postman_collection.json` into Postman.
+
+Included requests:
+
+- GET `/`
+- POST `/api/auth/register`
+- POST `/api/auth/login`
+- POST `/api/auth/refresh`
+- POST `/api/auth/logout`
+- POST `/api/otp/send`
+- POST `/api/otp/verify`
+
+If your current server mount is `/api/tenant`, update those two Postman request paths to:
+
+- POST `/api/tenant/send`
+- POST `/api/tenant/verify`
 
 ## Common Issues
 
 1. `Refresh token missing`
-   - Ensure requests use `credentials: "include"` or `withCredentials: true`.
+   - Ensure client sends cookies using `credentials: "include"` (fetch) or `withCredentials: true` (Axios).
 
 2. `Origin not allowed by CORS`
-   - Add your frontend URL to `CORS_ORIGIN`.
+   - Add your frontend origin to `CORS_ORIGIN`.
 
-3. Redis errors
-   - Confirm `REDIS_HOST`, `REDIS_PORT`, and optional password.
+3. OTP email not sent
+   - Verify AWS credentials and SES sender/region configuration in `aws/ses.js`.
 
-4. MongoDB connection failure
-   - Verify `MONGO_URI` and network access.
+4. Redis errors
+   - Verify `REDIS_HOST`, `REDIS_PORT`, and optional `REDIS_PASSWORD`.
+
+5. MongoDB connection failure
+   - Verify `MONGO_URI`.
 
 ## Security Notes
 
-- Use strong, unique values for JWT secrets.
-- Do not commit real secrets to source control.
-- Rotate exposed credentials and secrets if they were ever committed.
+- Use strong, unique JWT secrets.
+- Do not commit real credentials.
+- Keep production `NODE_ENV=production` for secure cookie behavior.

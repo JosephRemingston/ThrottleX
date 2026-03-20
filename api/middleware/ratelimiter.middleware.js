@@ -1,4 +1,3 @@
-import express from "express";
 import rateLimit from "express-rate-limit";
 
 
@@ -14,6 +13,22 @@ export var loginLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 1 hour
     max: 10, // limit each IP to 10 requests per windowMs
     message: "Too many login attempts from this IP, please try again after an 15 mins",
+    standardHeaders: true,
+    legacyHeaders: false,
+})
+
+export var sendOtpLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 3,
+    message: "Too many OTP send attempts from this IP, please try again after 10 mins",
+    standardHeaders: true,
+    legacyHeaders: false,
+})
+
+export var verifyOtpLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    message: "Too many OTP verify attempts from this IP, please try again after 10 mins",
     standardHeaders: true,
     legacyHeaders: false,
 })

@@ -21,6 +21,7 @@
     "supertest": "^7.2.2"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1013.0",
     "amqplib": "^0.10.9",
     "aws-sdk": "^2.1693.0",
     "bcrypt": "^6.0.0",

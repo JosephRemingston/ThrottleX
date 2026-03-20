@@ -24,11 +24,11 @@ export const authenticate = asyncHandler(async (req, res, next) => {
   }
 
   // Get user from database
-  const tenant = await Tenant.findById(decoded._id).select('-password -refreshToken');
+  const tenant = await Tenant.findById(decoded.userId).select('-password -refreshToken');
   if (!tenant) {
     return ApiResponse.badRequest(res, 'User not found');
   }
 
-  req.tenant = tenat;
+  req.tenant = tenant;
   next();
 });

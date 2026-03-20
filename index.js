@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import connectDB from './database/database.js';
 import authRoutes from "./api/routes/auth.routes.js";
+import tenantRoutes from "./api/routes/tenant.routes.js";
 import { apiLimiter } from "./api/middleware/ratelimiter.middleware.js";
 
 const app = express();
@@ -30,6 +31,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/api/auth" , authRoutes);
+app.use("/api/tenant", tenantRoutes);
 
 // Routes
 app.get('/', (req, res) => {
