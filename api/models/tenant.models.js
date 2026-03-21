@@ -26,7 +26,7 @@ const TenantSchema = new mongoose.Schema({
   },
   isVerified: {
     type: Boolean,
-    default: true
+    default: false
   },
   refreshToken: {
     type: String

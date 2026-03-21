@@ -1,48 +1,55 @@
 # ThrottleX API
 
-ThrottleX is an Express API for tenant authentication and OTP verification with Redis-backed token/session state and MongoDB persistence.
+ThrottleX is an Express API for tenant authentication, OTP verification, and tenant-scoped API key management using MongoDB and Redis.
 
-## Features
+## Current Features
 
-- Tenant register/login flow
-- JWT access token + refresh token cookie flow
-- Refresh token rotation stored in Redis
-- OTP send and verify endpoints
+- Tenant registration and login
+- JWT access token and refresh token flow
+- Refresh token storage and rotation in Redis
+- OTP send and verify flow via AWS SES
 - Protected tenant profile endpoint
-- Global and route-level rate limiting
+- API key generation and revoke endpoints
+- Global and endpoint-level rate limiting
+- Startup-time environment validation (fail-fast)
 
 ## Tech Stack
 
 - Node.js (ES modules)
-- Express
+- Express 5
 - MongoDB + Mongoose
 - Redis (ioredis)
 - JWT (jsonwebtoken)
-- AWS SES SDK (OTP email)
+- AWS SES v3 SDK
 
 ## Project Structure
 
 ```text
 .
 |-- index.js
-|-- README.md
-|-- ThrottleX.postman_collection.json
+|-- config/
+|   |-- env.js
 |-- api/
 |   |-- controllors/
 |   |   |-- auth.controllor.js
 |   |   |-- tenant.controllor.js
+|   |   |-- apiKey.controllor.js
 |   |-- middleware/
 |   |   |-- auth.middleware.js
 |   |   |-- ratelimiter.middleware.js
 |   |-- models/
 |   |   |-- tenant.models.js
+|   |   |-- apiKey.models.js
 |   |-- routes/
 |   |   |-- auth.routes.js
 |   |   |-- tenant.routes.js
+|   |   |-- apiKey.routes.js
 |   |-- utils/
 |       |-- ApiError.js
 |       |-- ApiResponse.js
 |       |-- asyncHandler.js
+|       |-- generateApiKey.js
+|       |-- generateOtp.js
 |-- aws/
 |   |-- ses.js
 |-- database/
@@ -51,6 +58,7 @@ ThrottleX is an Express API for tenant authentication and OTP verification with 
 |-- redis/
 |   |-- jwt.js
 |-- package.json
+|-- README.md
 ```
 
 ## Prerequisites
@@ -58,7 +66,7 @@ ThrottleX is an Express API for tenant authentication and OTP verification with 
 - Node.js 18+
 - MongoDB instance
 - Redis instance
-- AWS SES credentials (for OTP email delivery)
+- AWS SES credentials and a verified sender identity
 
 ## Environment Variables
 
@@ -78,19 +86,35 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
-# JWT (set strong random values)
+# JWT
 ACCESS_TOKEN_SECRET=replace-with-a-strong-secret
 REFRESH_TOKEN_SECRET=replace-with-a-strong-secret
 
 # AWS SES
 AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
+AWS_SES_REGION=ap-southeast-1
+AWS_SES_SOURCE_EMAIL=verified-sender@example.com
 
 # Optional
 NODE_ENV=development
 ```
 
-Note: OTP sender address is currently hardcoded in `aws/ses.js` (`Source` field).
+### Strict Startup Validation
+
+The app validates required env vars in `config/env.js` before startup. If any required variable is missing or blank, the process exits with an error.
+
+Required env vars:
+
+- MONGO_URI
+- ACCESS_TOKEN_SECRET
+- REFRESH_TOKEN_SECRET
+- AWS_ACCESS_KEY_ID
+- AWS_SECRET_ACCESS_KEY
+- AWS_SES_REGION
+- AWS_SES_SOURCE_EMAIL
+
+`PORT` is optional, but if set it must be numeric.
 
 ## Install and Run
 
@@ -99,36 +123,30 @@ npm install
 npm run dev
 ```
 
-Production mode:
+Production:
 
 ```bash
 npm start
 ```
 
-Default server URL:
+Default server URL: `http://localhost:3000`
 
-```text
-http://localhost:3000
-```
+## Mounted Routes
 
-## Route Mounts
-
-- Auth routes: `/api/auth`
-- Tenant routes: `/api/tenant`
+- `/api/auth`
+- `/api/tenant`
+- `/api/apikey`
 
 ## API Endpoints
 
 ### Health
 
-- Method: `GET`
-- Path: `/`
+- `GET /`
 
 ### Auth
 
-1. Register
-   - Method: `POST`
-   - Path: `/api/auth/register`
-   - Body:
+1. `POST /api/auth/register`
+Body:
 
 ```json
 {
@@ -139,10 +157,8 @@ http://localhost:3000
 }
 ```
 
-2. Login
-   - Method: `POST`
-   - Path: `/api/auth/login`
-   - Body:
+2. `POST /api/auth/login`
+Body:
 
 ```json
 {
@@ -151,28 +167,19 @@ http://localhost:3000
 }
 ```
 
-3. Refresh access token
-   - Method: `POST`
-   - Path: `/api/auth/refresh`
-   - Requires: `refreshToken` cookie
+3. `POST /api/auth/refresh`
+- Requires `refreshToken` cookie
 
-4. Logout
-   - Method: `POST`
-   - Path: `/api/auth/logout`
-   - Uses refresh cookie when present
+4. `POST /api/auth/logout`
+- Uses refresh cookie when present
 
 ### Tenant
 
-1. Send OTP
-   - Method: `POST`
-   - Path: `/api/tenant/send`
-   - Requires: `Authorization: Bearer <accessToken>`
+All tenant endpoints require `Authorization: Bearer <accessToken>`.
 
-2. Verify OTP
-   - Method: `POST`
-   - Path: `/api/tenant/verify`
-   - Requires: `Authorization: Bearer <accessToken>`
-   - Body:
+1. `POST /api/tenant/send`
+2. `POST /api/tenant/verify`
+Body:
 
 ```json
 {
@@ -180,14 +187,27 @@ http://localhost:3000
 }
 ```
 
-3. Tenant profile
-   - Method: `GET`
-   - Path: `/api/tenant/profile`
-   - Requires: `Authorization: Bearer <accessToken>`
+3. `GET /api/tenant/profile`
 
-## Response Shape
+### API Keys
 
-Success responses are returned as:
+All API key endpoints require `Authorization: Bearer <accessToken>`.
+
+1. `POST /api/apikey/generate`
+- Generates a tenant API key and returns it once in response.
+
+2. `POST /api/apikey/revoke`
+Body:
+
+```json
+{
+  "keyId": "your-key-id"
+}
+```
+
+## Response Format
+
+Successful responses follow this shape:
 
 ```json
 {
@@ -197,64 +217,39 @@ Success responses are returned as:
 }
 ```
 
-Unhandled/runtime errors from the async wrapper are returned as:
-
-```json
-{
-  "statusCode": 510,
-  "message": "Error in Code Base, Programmer Error",
-  "problem": "...",
-  "error": [],
-  "icon": "error"
-}
-```
-
 ## Rate Limits
 
-- Global API limiter: 1000 requests/IP per 60 minutes
-- Register: 5 requests/IP per 15 minutes
-- Login: 10 requests/IP per 10 minutes
-- OTP send: 3 requests/IP per 10 minutes
-- OTP verify: 10 requests/IP per 10 minutes
-
-## Postman Collection
-
-Import `ThrottleX.postman_collection.json` into Postman.
-
-Included requests:
-
-- GET `/`
-- POST `/api/auth/register`
-- POST `/api/auth/login`
-- POST `/api/auth/refresh`
-- POST `/api/auth/logout`
-- POST `/api/otp/send`
-- POST `/api/otp/verify`
-
-If your current server mount is `/api/tenant`, update those two Postman request paths to:
-
-- POST `/api/tenant/send`
-- POST `/api/tenant/verify`
+- Global API limiter: 1000 requests per IP per 60 minutes
+- Register: 5 requests per IP per 15 minutes
+- Login: 10 requests per IP per 10 minutes
+- OTP send: 3 requests per IP per 10 minutes
+- OTP verify: 10 requests per IP per 10 minutes
+- API key generate/revoke: 5 requests per IP per 60 minutes
 
 ## Common Issues
 
 1. `Refresh token missing`
-   - Ensure client sends cookies using `credentials: "include"` (fetch) or `withCredentials: true` (Axios).
+- Ensure the client sends cookies (`credentials: "include"` for fetch or `withCredentials: true` for Axios).
 
 2. `Origin not allowed by CORS`
-   - Add your frontend origin to `CORS_ORIGIN`.
+- Add your frontend origin to `CORS_ORIGIN`.
 
-3. OTP email not sent
-   - Verify AWS credentials and SES sender/region configuration in `aws/ses.js`.
+3. OTP email is not sent
+- Verify AWS credentials, SES region, and SES source identity.
 
-4. Redis errors
-   - Verify `REDIS_HOST`, `REDIS_PORT`, and optional `REDIS_PASSWORD`.
+4. Redis connection error
+- Verify `REDIS_HOST`, `REDIS_PORT`, and optional `REDIS_PASSWORD`.
 
 5. MongoDB connection failure
-   - Verify `MONGO_URI`.
+- Verify `MONGO_URI`.
+
+## Notes
+
+- `dockerfile` is present but currently scaffold-level and not production-ready.
+- There are currently no automated tests in this repository.
 
 ## Security Notes
 
 - Use strong, unique JWT secrets.
-- Do not commit real credentials.
-- Keep production `NODE_ENV=production` for secure cookie behavior.
+- Never commit real credentials.
+- Set `NODE_ENV=production` in production deployments.

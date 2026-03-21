@@ -3,9 +3,13 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import connectDB from './database/database.js';
+import { validateEnv } from './config/env.js';
 import authRoutes from "./api/routes/auth.routes.js";
 import tenantRoutes from "./api/routes/tenant.routes.js";
+import apiKeyRoutes from "./api/routes/apiKey.routes.js";
 import { apiLimiter } from "./api/middleware/ratelimiter.middleware.js";
+
+validateEnv();
 
 const app = express();
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
@@ -32,6 +36,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/api/auth" , authRoutes);
 app.use("/api/tenant", tenantRoutes);
+app.use("/api/apikey" , apiKeyRoutes);
 
 // Routes
 app.get('/', (req, res) => {

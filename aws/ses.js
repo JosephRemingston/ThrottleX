@@ -3,9 +3,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const SES_REGION = process.env.AWS_SES_REGION;
+const SES_SOURCE_EMAIL = process.env.AWS_SES_SOURCE_EMAIL;
 
 const ses = new SESClient({
-  region: "ap-southeast-1", // Mumbai
+  region: SES_REGION,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -14,7 +16,7 @@ const ses = new SESClient({
 
 export const sendOTPEmail = async (email, otp) => {
   const params = {
-    Source: "ljremi@gmail.com",
+    Source: SES_SOURCE_EMAIL,
     Destination: {
       ToAddresses: [email],
     },

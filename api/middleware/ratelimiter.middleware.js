@@ -40,3 +40,11 @@ export var apiLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 })
+
+export var apiKeyGeneratorLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // limit each IP to 5 requests per windowMs
+    message: "Too many API key generation attempts from this IP, please try again after an hour",
+    standardHeaders: true,
+    legacyHeaders: false,
+})
