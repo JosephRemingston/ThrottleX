@@ -1,30 +1,26 @@
 import dotenv from "dotenv";
+import Joi from "joi";
 
 dotenv.config();
 
-const requiredEnvVars = [
-  "MONGO_URI",
-  "ACCESS_TOKEN_SECRET",
-  "REFRESH_TOKEN_SECRET",
-  "AWS_ACCESS_KEY_ID",
-  "AWS_SECRET_ACCESS_KEY",
-  "AWS_SES_REGION",
-  "AWS_SES_SOURCE_EMAIL"
-];
+const envVarsSchema = Joi.object({
+  MONGO_URI: Joi.string().uri().required(),
+  ACCESS_TOKEN_SECRET: Joi.string().required(),
+  REFRESH_TOKEN_SECRET: Joi.string().required(),
+  AWS_ACCESS_KEY_ID: Joi.string().required(),
+  AWS_SECRET_ACCESS_KEY: Joi.string().required(),
+  AWS_SES_REGION: Joi.string().required(),
+  AWS_SES_SOURCE_EMAIL: Joi.string().email().required(),
+  PORT: Joi.number().port(),
+  CORS_ORIGIN: Joi.string(),
+  REDIS_HOST: Joi.string(),
+  REDIS_PORT: Joi.number(),
+  REDIS_PASSWORD: Joi.string().allow(""),
+}).unknown(true);
 
 export const validateEnv = () => {
-  const missing = requiredEnvVars.filter((key) => {
-    const value = process.env[key];
-    return !value || !String(value).trim();
-  });
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(", ")}`
-    );
-  }
-
-  if (process.env.PORT && Number.isNaN(Number(process.env.PORT))) {
-    throw new Error("PORT must be a valid number");
+  const { error } = envVarsSchema.validate(process.env);
+  if (error) {
+    throw new Error(`Config validation error: ${error.message}`);
   }
 };

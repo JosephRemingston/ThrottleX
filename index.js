@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import connectDB from './database/database.js';
 import { validateEnv } from './config/env.js';
@@ -8,6 +7,7 @@ import authRoutes from "./api/routes/auth.routes.js";
 import tenantRoutes from "./api/routes/tenant.routes.js";
 import apiKeyRoutes from "./api/routes/apiKey.routes.js";
 import { apiLimiter } from "./api/middleware/ratelimiter.middleware.js";
+import errorHandler from "./api/middleware/error.middleware.js";
 
 validateEnv();
 
@@ -31,12 +31,14 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(apiLimiter);
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/api/auth" , authRoutes);
 app.use("/api/tenant", tenantRoutes);
 app.use("/api/apikey" , apiKeyRoutes);
+
+app.use(errorHandler);
 
 // Routes
 app.get('/', (req, res) => {

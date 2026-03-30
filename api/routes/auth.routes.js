@@ -4,7 +4,7 @@ import {
 	login,
 	refresh,
 	logout
-} from "../controllors/auth.controllor.js";
+} from "../controllers/auth.controller.js";
 import {
 	registerLimiter,
 	loginLimiter

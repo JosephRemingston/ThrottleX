@@ -3,7 +3,7 @@ import {
 	sendOtp,
 	verifyOtp,
 	getTenantProfile
-} from "../controllors/tenant.controllor.js";
+} from "../controllers/tenant.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import {
 	sendOtpLimiter,

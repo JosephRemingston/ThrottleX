@@ -1,7 +1,7 @@
 import express from 'express';
 import { apiKeyGeneratorLimiter } from "../middleware/ratelimiter.middleware.js";
 import { authenticate } from "../middleware/auth.middleware.js";
-import { apiGenerator , revokeApiKey} from "../controllors/apiKey.controllor.js";
+import { apiGenerator , revokeApiKey} from "../controllers/apiKey.controller.js";
 
 var router = express.Router();
 

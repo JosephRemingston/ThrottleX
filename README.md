@@ -1,26 +1,82 @@
 # ThrottleX API
 
-ThrottleX is an Express API for tenant authentication, OTP verification, and tenant-scoped API key management using MongoDB and Redis.
+ThrottleX is a secure and scalable Express API designed for multi-tenant applications. It provides a robust foundation for tenant authentication, OTP verification, and API key management, leveraging MongoDB for primary data storage and Redis for caching and session management.
 
-## Current Features
+## System Design
 
-- Tenant registration and login
-- JWT access token and refresh token flow
-- Refresh token storage and rotation in Redis
-- OTP send and verify flow via AWS SES
-- Protected tenant profile endpoint
-- API key generation and revoke endpoints
-- Global and endpoint-level rate limiting
-- Startup-time environment validation (fail-fast)
+```mermaid
+graph TD
+    subgraph "Client"
+        A[User's Browser]
+    end
+
+    subgraph "API Layer (Express.js)"
+        B(API Server)
+        C(Global Rate Limiter)
+        D(CORS Middleware)
+        E(Error Handling Middleware)
+    end
+
+    subgraph "Routing & Controllers"
+        F[Auth Routes]
+        G[API Key Routes]
+        H[Tenant Routes]
+    end
+
+    subgraph "Authentication & Authorization"
+        I[Auth Middleware]
+        J[JWT Service]
+    end
+
+    subgraph "Data Storage"
+        K[(MongoDB)]
+        L[(Redis)]
+    end
+
+    subgraph "External Services"
+        M[AWS SES]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    B --> F
+    B --> G
+    B --> H
+    
+    F --> I
+    G --> I
+    H --> I
+
+    I -- Verifies Token --> J
+    F -- Manages User Data --> K
+    F -- Caches Sessions --> L
+    F -- Sends Emails --> M
+
+    B -- Catches Errors --> E
+```
+
+## Key Features
+
+-   **Tenant Management**: Secure registration and login for different tenants.
+-   **Authentication**: Robust JWT-based authentication with access and refresh tokens.
+-   **Session Management**: Refresh token storage and rotation using Redis for enhanced security.
+-   **Two-Factor Authentication**: OTP generation and verification via AWS SES.
+-   **API Key Management**: Endpoints for generating and revoking tenant-specific API keys.
+-   **Security**:
+    -   Global and endpoint-level rate limiting to prevent abuse.
+    -   Comprehensive error handling middleware for standardized responses.
+    -   Environment variable validation at startup to ensure configuration is correct.
+-   **Protected Routes**: Middleware to secure tenant-specific endpoints.
 
 ## Tech Stack
 
-- Node.js (ES modules)
-- Express 5
-- MongoDB + Mongoose
-- Redis (ioredis)
-- JWT (jsonwebtoken)
-- AWS SES v3 SDK
+-   **Backend**: Node.js with ES modules, Express 5
+-   **Database**: MongoDB with Mongoose for data modeling
+-   **Caching**: Redis (ioredis) for session and token management
+-   **Authentication**: JSON Web Tokens (jsonwebtoken)
+-   **Email Service**: AWS SES v3 SDK for sending OTPs
+-   **Validation**: Joi for environment variable validation
 
 ## Project Structure
 
@@ -30,13 +86,14 @@ ThrottleX is an Express API for tenant authentication, OTP verification, and ten
 |-- config/
 |   |-- env.js
 |-- api/
-|   |-- controllors/
-|   |   |-- auth.controllor.js
-|   |   |-- tenant.controllor.js
-|   |   |-- apiKey.controllor.js
+|   |-- controllers/
+|   |   |-- auth.controller.js
+|   |   |-- tenant.controller.js
+|   |   |-- apiKey.controller.js
 |   |-- middleware/
 |   |   |-- auth.middleware.js
 |   |   |-- ratelimiter.middleware.js
+|   |   |-- error.middleware.js
 |   |-- models/
 |   |   |-- tenant.models.js
 |   |   |-- apiKey.models.js
@@ -63,41 +120,63 @@ ThrottleX is an Express API for tenant authentication, OTP verification, and ten
 
 ## Prerequisites
 
-- Node.js 18+
-- MongoDB instance
-- Redis instance
-- AWS SES credentials and a verified sender identity
+-   Node.js 18+
+-   A running MongoDB instance
+-   A running Redis instance
+-   AWS SES credentials with a verified sender identity
+
+## Getting Started
+
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd ThrottleX
+    ```
+
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
+
+3.  **Set up environment variables**:
+    Create a `.env` file in the project root and add the required variables. See the `Environment Variables` section below for details.
+
+4.  **Run the development server**:
+    ```bash
+    npm run dev
+    ```
+    The server will start on the port specified in your `.env` file (default is 3000).
 
 ## Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root with the following variables:
 
 ```env
+# Server Configuration
 PORT=3000
+NODE_ENV=development
 
-# MongoDB
+# MongoDB Connection
 MONGO_URI=mongodb://localhost:27017/throttlex
 
-# CORS (comma-separated)
+# CORS Configuration (comma-separated for multiple origins)
 CORS_ORIGIN=http://localhost:5173
 
-# Redis
+# Redis Connection
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
-# JWT
-ACCESS_TOKEN_SECRET=replace-with-a-strong-secret
-REFRESH_TOKEN_SECRET=replace-with-a-strong-secret
+# JWT Secrets
+ACCESS_TOKEN_SECRET=your-strong-access-token-secret
+REFRESH_TOKEN_SECRET=your-strong-refresh-token-secret
 
-# AWS SES
-AWS_ACCESS_KEY_ID=your-access-key-id
-AWS_SECRET_ACCESS_KEY=your-secret-access-key
-AWS_SES_REGION=ap-southeast-1
-AWS_SES_SOURCE_EMAIL=verified-sender@example.com
-
-# Optional
-NODE_ENV=development
+# AWS SES Configuration
+AWS_ACCESS_KEY_ID=your-aws-access-key-id
+AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
+AWS_SES_REGION=your-aws-region
+AWS_SES_SOURCE_EMAIL=your-verified-sender-email@example.com
+```
 ```
 
 ### Strict Startup Validation
