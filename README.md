@@ -1,204 +1,89 @@
 # ThrottleX API
 
-ThrottleX is a secure and scalable Express API designed for multi-tenant applications. It provides a robust foundation for tenant authentication, OTP verification, and API key management, leveraging MongoDB for primary data storage and Redis for caching and session management.
+ThrottleX is an Express 5 API for multi-tenant authentication, OTP verification, and tenant-scoped API key management. It uses MongoDB for persistent data, Redis for token and OTP storage, and AWS SES for email delivery.
 
-## System Design
+## Features
 
-```mermaid
-graph TD
-    subgraph "Client"
-        A[User's Browser]
-    end
+- Tenant registration and login
+- JWT access tokens with refresh-token rotation
+- Refresh token storage in Redis
+- Logout with access-token blacklisting
+- OTP delivery through AWS SES
+- Tenant profile retrieval
+- Tenant-scoped API key generation and revocation
+- Global and route-level rate limiting
+- Environment validation at startup
 
-    subgraph "API Layer (Express.js)"
-        B(API Server)
-        C(Global Rate Limiter)
-        D(CORS Middleware)
-        E(Error Handling Middleware)
-    end
+## Stack
 
-    subgraph "Routing & Controllers"
-        F[Auth Routes]
-        G[API Key Routes]
-        H[Tenant Routes]
-    end
-
-    subgraph "Authentication & Authorization"
-        I[Auth Middleware]
-        J[JWT Service]
-    end
-
-    subgraph "Data Storage"
-        K[(MongoDB)]
-        L[(Redis)]
-    end
-
-    subgraph "External Services"
-        M[AWS SES]
-    end
-
-    A --> B
-    B --> C
-    B --> D
-    B --> F
-    B --> G
-    B --> H
-    
-    F --> I
-    G --> I
-    H --> I
-
-    I -- Verifies Token --> J
-    F -- Manages User Data --> K
-    F -- Caches Sessions --> L
-    F -- Sends Emails --> M
-
-    B -- Catches Errors --> E
-```
-
-## Key Features
-
--   **Tenant Management**: Secure registration and login for different tenants.
--   **Authentication**: Robust JWT-based authentication with access and refresh tokens.
--   **Session Management**: Refresh token storage and rotation using Redis for enhanced security.
--   **Two-Factor Authentication**: OTP generation and verification via AWS SES.
--   **API Key Management**: Endpoints for generating and revoking tenant-specific API keys.
--   **Security**:
-    -   Global and endpoint-level rate limiting to prevent abuse.
-    -   Comprehensive error handling middleware for standardized responses.
-    -   Environment variable validation at startup to ensure configuration is correct.
--   **Protected Routes**: Middleware to secure tenant-specific endpoints.
-
-## Tech Stack
-
--   **Backend**: Node.js with ES modules, Express 5
--   **Database**: MongoDB with Mongoose for data modeling
--   **Caching**: Redis (ioredis) for session and token management
--   **Authentication**: JSON Web Tokens (jsonwebtoken)
--   **Email Service**: AWS SES v3 SDK for sending OTPs
--   **Validation**: Joi for environment variable validation
+- Node.js
+- Express 5
+- MongoDB with Mongoose
+- Redis with ioredis
+- JWT with `jsonwebtoken`
+- AWS SES v3 SDK
+- Joi for environment validation
 
 ## Project Structure
 
 ```text
 .
-|-- index.js
-|-- config/
-|   |-- env.js
 |-- api/
 |   |-- controllers/
-|   |   |-- auth.controller.js
-|   |   |-- tenant.controller.js
-|   |   |-- apiKey.controller.js
 |   |-- middleware/
-|   |   |-- auth.middleware.js
-|   |   |-- ratelimiter.middleware.js
-|   |   |-- error.middleware.js
 |   |-- models/
-|   |   |-- tenant.models.js
-|   |   |-- apiKey.models.js
 |   |-- routes/
-|   |   |-- auth.routes.js
-|   |   |-- tenant.routes.js
-|   |   |-- apiKey.routes.js
 |   |-- utils/
-|       |-- ApiError.js
-|       |-- ApiResponse.js
-|       |-- asyncHandler.js
-|       |-- generateApiKey.js
-|       |-- generateOtp.js
 |-- aws/
-|   |-- ses.js
+|-- config/
 |-- database/
-|   |-- database.js
-|   |-- redis.js
 |-- redis/
-|   |-- jwt.js
+|-- index.js
 |-- package.json
 |-- README.md
 ```
 
 ## Prerequisites
 
--   Node.js 18+
--   A running MongoDB instance
--   A running Redis instance
--   AWS SES credentials with a verified sender identity
+- Node.js 18+
+- MongoDB
+- Redis
+- AWS SES credentials and a verified sender email
 
-## Getting Started
+## Setup
 
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository-url>
-    cd ThrottleX
-    ```
+1. Install dependencies:
 
-2.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
+```bash
+npm install
+```
 
-3.  **Set up environment variables**:
-    Create a `.env` file in the project root and add the required variables. See the `Environment Variables` section below for details.
-
-4.  **Run the development server**:
-    ```bash
-    npm run dev
-    ```
-    The server will start on the port specified in your `.env` file (default is 3000).
-
-## Environment Variables
-
-Create a `.env` file in the project root with the following variables:
+2. Create a `.env` file in the project root:
 
 ```env
-# Server Configuration
 PORT=3000
 NODE_ENV=development
 
-# MongoDB Connection
 MONGO_URI=mongodb://localhost:27017/throttlex
 
-# CORS Configuration (comma-separated for multiple origins)
 CORS_ORIGIN=http://localhost:5173
 
-# Redis Connection
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
-# JWT Secrets
-ACCESS_TOKEN_SECRET=your-strong-access-token-secret
-REFRESH_TOKEN_SECRET=your-strong-refresh-token-secret
+ACCESS_TOKEN_SECRET=replace-with-at-least-32-characters
+REFRESH_TOKEN_SECRET=replace-with-at-least-32-characters
 
-# AWS SES Configuration
-AWS_ACCESS_KEY_ID=your-aws-access-key-id
-AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
-AWS_SES_REGION=your-aws-region
-AWS_SES_SOURCE_EMAIL=your-verified-sender-email@example.com
-```
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_SES_REGION=ap-south-1
+AWS_SES_SOURCE_EMAIL=verified-sender@example.com
 ```
 
-### Strict Startup Validation
-
-The app validates required env vars in `config/env.js` before startup. If any required variable is missing or blank, the process exits with an error.
-
-Required env vars:
-
-- MONGO_URI
-- ACCESS_TOKEN_SECRET
-- REFRESH_TOKEN_SECRET
-- AWS_ACCESS_KEY_ID
-- AWS_SECRET_ACCESS_KEY
-- AWS_SES_REGION
-- AWS_SES_SOURCE_EMAIL
-
-`PORT` is optional, but if set it must be numeric.
-
-## Install and Run
+3. Start the API:
 
 ```bash
-npm install
 npm run dev
 ```
 
@@ -208,24 +93,69 @@ Production:
 npm start
 ```
 
-Default server URL: `http://localhost:3000`
+The server listens on `http://localhost:3000` unless `PORT` is overridden.
 
-## Mounted Routes
+## Environment Validation
 
-- `/api/auth`
-- `/api/tenant`
-- `/api/apikey`
+The app validates environment variables on startup in `config/env.js`.
 
-## API Endpoints
+Required values:
+
+- `MONGO_URI`
+- `ACCESS_TOKEN_SECRET`
+- `REFRESH_TOKEN_SECRET`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SES_REGION`
+- `AWS_SES_SOURCE_EMAIL`
+
+Optional values:
+
+- `PORT`
+- `CORS_ORIGIN`
+- `REDIS_HOST`
+- `REDIS_PORT`
+- `REDIS_PASSWORD`
+
+## Auth Flow
+
+1. Register a tenant with `name`, `email`, `password`, and `accountType`.
+2. Log in to receive an access token and a `refreshToken` HTTP-only cookie.
+3. Send the access token as `Authorization: Bearer <token>` to protected routes.
+4. Use `POST /api/auth/refresh` to rotate the refresh token and obtain a new access token.
+5. Use `POST /api/auth/logout` to delete the stored refresh token and blacklist the access token.
+
+Access token expiry: `15m`
+
+Refresh token expiry: `7d`
+
+## Cookie and CORS Notes
+
+- Refresh tokens are stored in an HTTP-only cookie named `refreshToken`.
+- In development, the cookie uses `SameSite=lax`.
+- In production, the cookie uses `SameSite=none` and `secure=true`.
+- `CORS_ORIGIN` supports a comma-separated allowlist.
+- Refresh and logout requests with a refresh cookie must come from a trusted origin or referer.
+
+## Routes
+
+Base URL examples below assume `http://localhost:3000`.
 
 ### Health
 
-- `GET /`
+`GET /`
+
+Response:
+
+```json
+{
+  "message": "Welcome to ThrottleX API"
+}
+```
 
 ### Auth
 
-1. `POST /api/auth/register`
-Body:
+`POST /api/auth/register`
 
 ```json
 {
@@ -236,8 +166,12 @@ Body:
 }
 ```
 
-2. `POST /api/auth/login`
-Body:
+Notes:
+
+- `accountType` must be `test` or `live`
+- Email is normalized to lowercase
+
+`POST /api/auth/login`
 
 ```json
 {
@@ -246,19 +180,34 @@ Body:
 }
 ```
 
-3. `POST /api/auth/refresh`
-- Requires `refreshToken` cookie
+Response includes:
 
-4. `POST /api/auth/logout`
-- Uses refresh cookie when present
+- `tenant`
+- `accessToken`
+- `refreshToken` cookie
+
+`POST /api/auth/refresh`
+
+- Requires the `refreshToken` cookie
+- Returns a new access token
+- Rotates the refresh token cookie
+
+`POST /api/auth/logout`
+
+- Uses the `refreshToken` cookie when present
+- Blacklists the provided bearer access token when present
 
 ### Tenant
 
-All tenant endpoints require `Authorization: Bearer <accessToken>`.
+All tenant routes require `Authorization: Bearer <accessToken>`.
 
-1. `POST /api/tenant/send`
-2. `POST /api/tenant/verify`
-Body:
+`POST /api/tenant/send`
+
+- Generates a one-time password
+- Stores a hashed OTP in Redis for 5 minutes
+- Sends the OTP to the tenant email via AWS SES
+
+`POST /api/tenant/verify`
 
 ```json
 {
@@ -266,17 +215,25 @@ Body:
 }
 ```
 
-3. `GET /api/tenant/profile`
+- Verifies the OTP using constant-time comparison
+- Marks the tenant as verified
+
+`GET /api/tenant/profile`
+
+- Returns the authenticated tenant profile
 
 ### API Keys
 
-All API key endpoints require `Authorization: Bearer <accessToken>`.
+All API key routes require `Authorization: Bearer <accessToken>`.
 
-1. `POST /api/apikey/generate`
-- Generates a tenant API key and returns it once in response.
+`POST /api/apikey/generate`
 
-2. `POST /api/apikey/revoke`
-Body:
+- Generates a tenant API key
+- Returns the raw API key once
+- Stores only the hashed key in MongoDB
+- Uses prefix `sk_test` or `sk_live` based on the tenant account type
+
+`POST /api/apikey/revoke`
 
 ```json
 {
@@ -284,51 +241,46 @@ Body:
 }
 ```
 
-## Response Format
+- Marks the specified key as revoked
 
-Successful responses follow this shape:
+## Response Shape
+
+Successful controller responses use a shared wrapper:
 
 ```json
 {
   "statusCode": 200,
-  "message": "...",
+  "message": "Success message",
   "data": {}
 }
 ```
 
 ## Rate Limits
 
-- Global API limiter: 1000 requests per IP per 60 minutes
+- Global API: 1000 requests per IP per 60 minutes
 - Register: 5 requests per IP per 15 minutes
 - Login: 10 requests per IP per 10 minutes
-- OTP send: 3 requests per IP per 10 minutes
-- OTP verify: 10 requests per IP per 10 minutes
+- Send OTP: 3 requests per IP per 10 minutes
+- Verify OTP: 10 requests per IP per 10 minutes
 - API key generate/revoke: 5 requests per IP per 60 minutes
+
+## Development Notes
+
+- `npm test` is defined in `package.json`, but there are currently no test files in the repository.
+- `dockerfile` exists, but the repo does not currently document a container workflow.
 
 ## Common Issues
 
-1. `Refresh token missing`
-- Ensure the client sends cookies (`credentials: "include"` for fetch or `withCredentials: true` for Axios).
-
-2. `Origin not allowed by CORS`
-- Add your frontend origin to `CORS_ORIGIN`.
-
-3. OTP email is not sent
-- Verify AWS credentials, SES region, and SES source identity.
-
-4. Redis connection error
-- Verify `REDIS_HOST`, `REDIS_PORT`, and optional `REDIS_PASSWORD`.
-
-5. MongoDB connection failure
-- Verify `MONGO_URI`.
-
-## Notes
-
-- `dockerfile` is present but currently scaffold-level and not production-ready.
-- There are currently no automated tests in this repository.
+- `Config validation error`: check missing or invalid `.env` values.
+- `Origin not allowed by CORS`: add your frontend origin to `CORS_ORIGIN`.
+- `Cross-site cookie request blocked`: ensure refresh/logout requests originate from an allowed frontend origin.
+- `Refresh token missing`: send cookies from the client with `credentials: "include"` or `withCredentials: true`.
+- Redis connection failures: verify `REDIS_HOST`, `REDIS_PORT`, and `REDIS_PASSWORD`.
+- SES delivery issues: verify AWS credentials, SES region, and sender identity.
 
 ## Security Notes
 
-- Use strong, unique JWT secrets.
-- Never commit real credentials.
+- Use strong JWT secrets of at least 32 characters.
+- Do not commit real credentials.
 - Set `NODE_ENV=production` in production deployments.
+- Serve the API over HTTPS in production so secure cookies work correctly.

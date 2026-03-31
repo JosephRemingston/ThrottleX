@@ -6,10 +6,12 @@ import Tenant from "../models/tenant.models.js";
 import {
   generateAccessToken,
   generateRefreshToken,
+  verifyAccessToken,
   verifyRefreshToken,
   storeRefreshToken,
   getRefreshToken,
-  deleteRefreshToken
+  deleteRefreshToken,
+  blacklistToken
 } from "../../redis/jwt.js";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -157,16 +159,37 @@ export const refresh = asyncHandler(async (req, res) => {
 // ================= LOGOUT =================
 export const logout = asyncHandler(async (req, res) => {
   const token = req.cookies.refreshToken;
+  const accessToken = req.headers.authorization?.replace("Bearer ", "");
 
   if (!token) {
+    if (accessToken) {
+      const decodedAccessToken = verifyAccessToken(accessToken);
+
+      if (decodedAccessToken?.exp) {
+        const ttl = Math.max(decodedAccessToken.exp - Math.floor(Date.now() / 1000), 1);
+        await blacklistToken(accessToken, ttl);
+      }
+    }
+
     return ApiResponse.success(res, "Logged out");
   }
 
   try {
     const decoded = verifyRefreshToken(token);
-    await deleteRefreshToken(decoded.userId);
+    if (decoded?.userId) {
+      await deleteRefreshToken(decoded.userId);
+    }
   } catch {
     // ignore errors (token may already be invalid)
+  }
+
+  if (accessToken) {
+    const decodedAccessToken = verifyAccessToken(accessToken);
+
+    if (decodedAccessToken?.exp) {
+      const ttl = Math.max(decodedAccessToken.exp - Math.floor(Date.now() / 1000), 1);
+      await blacklistToken(accessToken, ttl);
+    }
   }
 
   // Clear cookie

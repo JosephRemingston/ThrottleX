@@ -29,10 +29,11 @@ const corsOptions = {
 };
 
 // Middleware
+app.disable('x-powered-by');
 app.use(cors(corsOptions));
 app.use(apiLimiter);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(cookieParser());
 app.use("/api/auth" , authRoutes);
 app.use("/api/tenant", tenantRoutes);

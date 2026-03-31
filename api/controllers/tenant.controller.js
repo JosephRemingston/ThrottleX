@@ -1,8 +1,9 @@
 import asyncHandler from "../utils/asyncHandler.js";
+import crypto from "crypto";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import Tenant from "../models/tenant.models.js";
-import { storeOTP , getOTP} from "../../database/redis.js";
+import { storeOTP , getOTP, deleteOTP } from "../../database/redis.js";
 import { sendOTPEmail } from "../../aws/ses.js";
 
 import { generateOtp } from "../utils/generateOtp.js";
@@ -65,11 +66,19 @@ export const verifyOtp = asyncHandler(async (req, res) => {
         throw new ApiError(400, "OTP has expired or is invalid");
     }
 
-    if (storedOtp !== otp) {
+    const providedOtpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const storedOtpBuffer = Buffer.from(storedOtp, "hex");
+    const providedOtpBuffer = Buffer.from(providedOtpHash, "hex");
+
+    if (
+        storedOtpBuffer.length !== providedOtpBuffer.length ||
+        !crypto.timingSafeEqual(storedOtpBuffer, providedOtpBuffer)
+    ) {
         throw new ApiError(400, "Invalid OTP");
     }
 
     tenant.isVerified = true;
     await tenant.save();
+    await deleteOTP(tenantEmail);
     return ApiResponse.success(res, "OTP verified successfully");
 });

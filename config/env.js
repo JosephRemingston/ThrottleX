@@ -5,8 +5,8 @@ dotenv.config();
 
 const envVarsSchema = Joi.object({
   MONGO_URI: Joi.string().uri().required(),
-  ACCESS_TOKEN_SECRET: Joi.string().required(),
-  REFRESH_TOKEN_SECRET: Joi.string().required(),
+  ACCESS_TOKEN_SECRET: Joi.string().min(32).required(),
+  REFRESH_TOKEN_SECRET: Joi.string().min(32).required(),
   AWS_ACCESS_KEY_ID: Joi.string().required(),
   AWS_SECRET_ACCESS_KEY: Joi.string().required(),
   AWS_SES_REGION: Joi.string().required(),

@@ -18,9 +18,9 @@ export var apiGenerator = asyncHandler(async (req, res) => {
     const { apiKey, hashedKey, keyId } = generateApiKey({ prefix: tenant.accountType === "live" ? "sk_live" : "sk_test" });
 
     const newApiKey = await ApiKey.create({
-        tenant: tenantId,
-        keyId : keyId,
-        hashedKey: hashedKey
+        tenantId: tenantId,
+        keyId: keyId,
+        keyHash: hashedKey
     })
 
     if(!newApiKey) {
@@ -36,7 +36,11 @@ export var revokeApiKey = asyncHandler(async (req, res) => {
     const tenantId = req.tenant._id;
     const { keyId } = req.body;
 
-    const apiKey = await ApiKey.findOne({ tenant: tenantId, keyId });
+    if (!keyId?.trim()) {
+        throw new ApiError(400, "keyId is required");
+    }
+
+    const apiKey = await ApiKey.findOne({ tenantId: tenantId, keyId: keyId.trim() });
     if (!apiKey) {
         throw new ApiError(404, "API key not found");
     }

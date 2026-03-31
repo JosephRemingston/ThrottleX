@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -22,9 +23,11 @@ redis.on('error', (err) => {
 });
 
 export const storeOTP = async (email, otp) => {
+  const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
   await redis.set(
     `otp:${email}`,
-    otp,
+    otpHash,
     "EX",
     300 // 5 minutes expiry
   );
@@ -32,6 +35,10 @@ export const storeOTP = async (email, otp) => {
 
 export const getOTP = async (email) => {
   return await redis.get(`otp:${email}`);
+};
+
+export const deleteOTP = async (email) => {
+  await redis.del(`otp:${email}`);
 };
 
 export default redis;

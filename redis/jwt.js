@@ -1,29 +1,33 @@
 import jwt from 'jsonwebtoken';
 import redis from "../database/redis.js";
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your-access-secret';
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret';
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
 const REFRESH_TOKEN_EXPIRY = '7d'; // 7 days
 
+const getJwtSecret = (envKey) => {
+  const secret = process.env[envKey];
+
+  if (!secret) {
+    throw new Error(`${envKey} is not configured`);
+  }
+
+  return secret;
+};
+
 export const generateAccessToken = (userId) => {
-  return jwt.sign({ userId }, ACCESS_TOKEN_SECRET, {
+  return jwt.sign({ userId }, getJwtSecret('ACCESS_TOKEN_SECRET'), {
     expiresIn: ACCESS_TOKEN_EXPIRY
   });
 };
 
 export const generateRefreshToken = (userId) => {
-  return jwt.sign({ userId }, REFRESH_TOKEN_SECRET, {
+  return jwt.sign({ userId }, getJwtSecret('REFRESH_TOKEN_SECRET'), {
     expiresIn: REFRESH_TOKEN_EXPIRY
   });
 };
 
 export const verifyAccessToken = (token) => {
   try {
-    return jwt.verify(token, ACCESS_TOKEN_SECRET);
+    return jwt.verify(token, getJwtSecret('ACCESS_TOKEN_SECRET'));
   } catch (error) {
     return null;
   }
@@ -31,7 +35,7 @@ export const verifyAccessToken = (token) => {
 
 export const verifyRefreshToken = (token) => {
   try {
-    return jwt.verify(token, REFRESH_TOKEN_SECRET);
+    return jwt.verify(token, getJwtSecret('REFRESH_TOKEN_SECRET'));
   } catch (error) {
     return null;
   }
