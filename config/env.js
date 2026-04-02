@@ -4,6 +4,11 @@ import Joi from "joi";
 dotenv.config();
 
 const envVarsSchema = Joi.object({
+  ROLLOUT_CHECK_INTERVAL_SECONDS: Joi.number().default(30),
+  SERVER_STALE_THRESHOLD_MINUTES: Joi.number().default(5),
+  METRICS_LOOKBACK_SECONDS: Joi.number().default(60),
+  ERROR_RATE_THRESHOLD_MULTIPLIER: Joi.number().default(1.5),
+  ROLLOUT_STEP_PERCENTAGE: Joi.number().default(20),
   MONGO_URI: Joi.string().uri().required(),
   ACCESS_TOKEN_SECRET: Joi.string().min(32).required(),
   REFRESH_TOKEN_SECRET: Joi.string().min(32).required(),

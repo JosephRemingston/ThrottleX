@@ -85,8 +85,6 @@ flowchart TD
     Key -->|create/revoke API key record| Mongo
 ```
 
-Standalone diagram: [docs/system-design.mmd](/Users/josephremingstonl/Downloads/code/ThrottleX/docs/system-design.mmd)
-
 ## Prerequisites
 
 - Node.js 18+
