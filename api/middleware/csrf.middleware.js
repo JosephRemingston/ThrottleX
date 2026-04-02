@@ -34,3 +34,23 @@ export const requireTrustedOriginForRefreshCookie = (req, res, next) => {
 
   return next();
 };
+
+export const verifyCsrfToken = (req, res, next) => {
+  // Skip CSRF check for safe methods
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    return next();
+  }
+
+  const csrfTokenFromHeader = req.headers["x-csrf-token"];
+  const csrfTokenFromCookie = req.cookies["csrf-token"];
+
+  if (!csrfTokenFromHeader || !csrfTokenFromCookie) {
+    return next(new ApiError(403, "CSRF token missing"));
+  }
+
+  if (csrfTokenFromHeader !== csrfTokenFromCookie) {
+    return next(new ApiError(403, "Invalid CSRF token"));
+  }
+
+  return next();
+};

@@ -8,6 +8,7 @@ import tenantRoutes from "./api/routes/tenant.routes.js";
 import apiKeyRoutes from "./api/routes/apiKey.routes.js";
 import { apiLimiter } from "./api/middleware/ratelimiter.middleware.js";
 import errorHandler from "./api/middleware/error.middleware.js";
+import { verifyCsrfToken } from "./api/middleware/csrf.middleware.js";
 
 validateEnv();
 
@@ -35,6 +36,10 @@ app.use(apiLimiter);
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(cookieParser());
+
+// Apply CSRF protection to all state-changing routes
+app.use(verifyCsrfToken);
+
 app.use("/api/auth" , authRoutes);
 app.use("/api/tenant", tenantRoutes);
 app.use("/api/apikey" , apiKeyRoutes);

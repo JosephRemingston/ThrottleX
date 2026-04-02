@@ -15,8 +15,19 @@ import {
 } from "../../redis/jwt.js";
 
 const isProduction = process.env.NODE_ENV === "production";
+import { generateCsrfToken } from "../utils/generateCsrfToken.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiResponse from "../utils/ApiResponse.js";
+// ...existing code...
 const refreshCookieOptions = {
   httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
+  path: "/",
+  maxAge: 7 * 24 * 60 * 60 * 1000
+};
+
+const csrfCookieOptions = {
   secure: isProduction,
   sameSite: isProduction ? "none" : "lax",
   path: "/",
@@ -103,6 +114,10 @@ export const login = asyncHandler(async (req, res) => {
   // Store refresh token in Redis
   await storeRefreshToken(tenant._id.toString(), refreshToken);
 
+  // Generate and set CSRF token
+  const csrfToken = generateCsrfToken();
+  res.cookie("csrf-token", csrfToken, csrfCookieOptions);
+
   // Set refresh token in httpOnly cookie
   res.cookie("refreshToken", refreshToken, refreshCookieOptions);
 
@@ -112,7 +127,8 @@ export const login = asyncHandler(async (req, res) => {
       name: tenant.name,
       email: tenant.email
     },
-    accessToken
+    accessToken,
+    csrfToken // Send CSRF token in the response body as well for convenience
   });
 });
 
@@ -198,6 +214,12 @@ export const logout = asyncHandler(async (req, res) => {
     secure: refreshCookieOptions.secure,
     sameSite: refreshCookieOptions.sameSite,
     path: refreshCookieOptions.path
+  });
+
+  res.clearCookie("csrf-token", {
+    secure: csrfCookieOptions.secure,
+    sameSite: csrfCookieOptions.sameSite,
+    path: csrfCookieOptions.path
   });
 
   return ApiResponse.success(res, "Logged out successfully");
