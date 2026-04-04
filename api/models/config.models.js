@@ -1,41 +1,53 @@
-import mongoose from "mongoose";
+const mongoose = require('mongoose');
 
 const versionSchema = new mongoose.Schema({
-  version: { type: Number, required: true },
-  data: { type: mongoose.Schema.Types.Mixed, required: true },
+  id: { type: String, required: true },  // e.g., "v1", "v2"
+  data: { type: Object, required: true }, // Actual config JSON
   createdAt: { type: Date, default: Date.now }
-}, { _id: false });
+});
 
 const rolloutSchema = new mongoose.Schema({
-  version: { type: Number },
-  percentage: { type: Number, default: 5 },
-  status: {
-    type: String,
-    enum: ["in_progress", "completed", "reverted", "paused"],
-    default: "in_progress"
-  },
-  v2ServerIds: [{ type: String }],
-  startedAt: { type: Date, default: Date.now }
-}, { _id: false });
+  version: { type: String, required: true },  // e.g., "v1"
+  percentage: { type: Number, required: true, min: 0, max: 100 }
+});
 
 const configSchema = new mongoose.Schema({
-  tenantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Tenant",
+  customerApiKey: { 
+    type: String, 
     required: true,
-    index: true
+    index: true 
   },
-  key: {
-    type: String,
-    required: true,
-    trim: true,
-    lowercase: true
+  name: { 
+    type: String, 
+    required: true 
   },
+  description: String,
+  
   versions: [versionSchema],
-  activeVersion: { type: Number, default: 1 },
-  rollout: { type: rolloutSchema, default: null }
-}, { timestamps: true });
+  
+  rolloutPercentages: [rolloutSchema],
+  
+  // Health check thresholds
+  rollbackThreshold: { 
+    type: Number, 
+    default: 5  // Rollback if error rate > 5%
+  },
+  advanceThreshold: { 
+    type: Number, 
+    default: 1  // Advance if error rate < 1%
+  },
+  
+  status: { 
+    type: String, 
+    enum: ['active', 'paused', 'completed'],
+    default: 'active'
+  },
+  
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
 
-configSchema.index({ tenantId: 1, key: 1 }, { unique: true });
+// Compound index for faster lookups
+configSchema.index({ customerApiKey: 1, name: 1 }, { unique: true });
 
-export default mongoose.model("Config", configSchema);
+export default mongoose.model('Config', configSchema);

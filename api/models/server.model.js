@@ -1,39 +1,39 @@
-import mongoose from "mongoose";
+import mongoose  from 'mongoose';
 
 const serverSchema = new mongoose.Schema({
-  tenantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Tenant",
-    required: true,
-    index: true
+  serverId: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    index: true 
   },
-  serverId: {
+  customerApiKey: { 
+    type: String, 
+    required: true,
+    index: true 
+  },
+  serverName: String,  // e.g., hostname
+  environment: {
     type: String,
-    required: true,
-    trim: true
+    enum: ['production', 'staging', 'development'],
+    default: 'production'
   },
-  currentVersion: {
-    type: Number,
-    default: 1
-  },
-  lastSeen: {
-    type: Date,
-    default: Date.now
-  },
-  metadata: {
-    hostname: { type: String },
-    environment: {
-      type: String,
-      enum: ["development", "staging", "production"],
-      default: "production"
-    },
-    version: { type: String }
+  
+  // Track which configs this server is using
+  activeConfigs: [{
+    configId: { type: mongoose.Schema.Types.ObjectId, ref: 'Config' },
+    version: String,
+    assignedAt: Date
+  }],
+  
+  lastPoll: { type: Date, default: Date.now },
+  registeredAt: { type: Date, default: Date.now },
+  
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
   }
-}, { timestamps: true });
+});
 
-serverSchema.index({ tenantId: 1, serverId: 1 }, { unique: true });
-
-// Index for finding stale servers (ones that haven't checked in recently)
-serverSchema.index({ lastSeen: 1 });
-
-export default mongoose.model("Server", serverSchema);
+export default mongoose.model('Server', serverSchema);
