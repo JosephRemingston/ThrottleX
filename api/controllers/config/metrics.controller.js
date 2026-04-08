@@ -1,9 +1,7 @@
-import crypto from "crypto";
 import mongoose from "mongoose";
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiError from "../../utils/ApiError.js";
 import ApiResponse from "../../utils/ApiResponse.js";
-import ApiKey from "../../models/apiKey.models.js";
 import Config from "../../models/config/config.models.js";
 import Metric from "../../models/config/metric.models.js";
 
@@ -12,53 +10,9 @@ const getLookbackSeconds = () => {
     return Number.isNaN(parsed) || parsed <= 0 ? 60 : parsed;
 };
 
-const validateApiKeyForServer = async (req) => {
-    const apiKey = req.header("x-api-key");
-
-    if (!apiKey) {
-        throw new ApiError(401, "API key is missing");
-    }
-
-    const parts = apiKey.split("_");
-    if (parts.length < 3) {
-        throw new ApiError(401, "Invalid API key format");
-    }
-
-    const keyId = parts[parts.length - 2];
-    const apiKeyRecord = await ApiKey.findOne({ keyId }).select("+keyHash");
-
-    if (!apiKeyRecord) {
-        throw new ApiError(401, "Invalid API key");
-    }
-
-    const hashedKey = crypto.createHash("sha256").update(apiKey).digest("hex");
-    const storedKeyBuffer = Buffer.from(apiKeyRecord.keyHash, "hex");
-    const providedKeyBuffer = Buffer.from(hashedKey, "hex");
-
-    if (
-        storedKeyBuffer.length !== providedKeyBuffer.length ||
-        !crypto.timingSafeEqual(storedKeyBuffer, providedKeyBuffer)
-    ) {
-        throw new ApiError(401, "Invalid API key");
-    }
-
-    if (apiKeyRecord.revoked) {
-        throw new ApiError(403, "API key has been revoked");
-    }
-
-    if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date()) {
-        throw new ApiError(403, "API key has expired");
-    }
-
-    apiKeyRecord.lastUsed = new Date();
-    await apiKeyRecord.save();
-
-    req.apiKey = apiKeyRecord;
-    return apiKeyRecord;
-};
-
 export const ingestMetrics = asyncHandler(async (req, res) => {
     const serverId = req.serverId;
+    const customerApiKey = req.apiKey?.keyId;
     const {
         configId,
         version,
@@ -77,11 +31,13 @@ export const ingestMetrics = asyncHandler(async (req, res) => {
         throw new ApiError(400, "version is required");
     }
 
-    const apiKeyRecord = await validateApiKeyForServer(req);
+    if (!customerApiKey) {
+        throw new ApiError(401, "Validated API key is required");
+    }
 
     const config = await Config.findOne({
         _id: configId,
-        customerApiKey: apiKeyRecord.keyId
+        customerApiKey
     });
 
     if (!config) {

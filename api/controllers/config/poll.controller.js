@@ -1,60 +1,17 @@
-import crypto from "crypto";
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiError from "../../utils/ApiError.js";
 import ApiResponse from "../../utils/ApiResponse.js";
-import ApiKey from "../../models/apiKey.models.js";
 import Config from "../../models/config/config.models.js";
 import Server from "../../models/config/server.model.js";
 import HashService from "../../services/config/hashService.js";
 
-const validateApiKeyForPolling = async (req) => {
-    const apiKey = req.header("x-api-key");
-
-    if (!apiKey) {
-        throw new ApiError(401, "API key is missing");
-    }
-
-    const parts = apiKey.split("_");
-    if (parts.length < 3) {
-        throw new ApiError(401, "Invalid API key format");
-    }
-
-    const keyId = parts[parts.length - 2];
-    const apiKeyRecord = await ApiKey.findOne({ keyId }).select("+keyHash");
-
-    if (!apiKeyRecord) {
-        throw new ApiError(401, "Invalid API key");
-    }
-
-    const hashedKey = crypto.createHash("sha256").update(apiKey).digest("hex");
-    const storedKeyBuffer = Buffer.from(apiKeyRecord.keyHash, "hex");
-    const providedKeyBuffer = Buffer.from(hashedKey, "hex");
-
-    if (
-        storedKeyBuffer.length !== providedKeyBuffer.length ||
-        !crypto.timingSafeEqual(storedKeyBuffer, providedKeyBuffer)
-    ) {
-        throw new ApiError(401, "Invalid API key");
-    }
-
-    if (apiKeyRecord.revoked) {
-        throw new ApiError(403, "API key has been revoked");
-    }
-
-    if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date()) {
-        throw new ApiError(403, "API key has expired");
-    }
-
-    apiKeyRecord.lastUsed = new Date();
-    await apiKeyRecord.save();
-
-    req.apiKey = apiKeyRecord;
-    return apiKeyRecord;
-};
-
 export const registerServer = asyncHandler(async (req, res) => {
     const { serverId, serverName, environment } = req.body;
-    const apiKeyRecord = await validateApiKeyForPolling(req);
+    const customerApiKey = req.apiKey?.keyId;
+
+    if (!customerApiKey) {
+        throw new ApiError(401, "Validated API key is required");
+    }
 
     if (!serverId?.trim()) {
         throw new ApiError(400, "serverId is required");
@@ -63,7 +20,7 @@ export const registerServer = asyncHandler(async (req, res) => {
     const server = await Server.findOneAndUpdate(
         { serverId: serverId.trim() },
         {
-            customerApiKey: apiKeyRecord.keyId,
+            customerApiKey,
             serverName,
             environment,
             lastPoll: new Date(),
@@ -81,12 +38,16 @@ export const registerServer = asyncHandler(async (req, res) => {
 });
 
 export const pollConfig = asyncHandler(async (req, res) => {
-    const apiKeyRecord = await validateApiKeyForPolling(req);
     const { configName } = req.params;
     const serverId = req.serverId;
+    const customerApiKey = req.apiKey?.keyId;
+
+    if (!customerApiKey) {
+        throw new ApiError(401, "Validated API key is required");
+    }
 
     const config = await Config.findOne({
-        customerApiKey: apiKeyRecord.keyId,
+        customerApiKey,
         name: configName
     });
 
@@ -110,13 +71,13 @@ export const pollConfig = asyncHandler(async (req, res) => {
     if (!server) {
         server = await Server.create({
             serverId,
-            customerApiKey: apiKeyRecord.keyId,
+            customerApiKey,
             status: "active"
         });
     }
 
     server.lastPoll = new Date();
-    server.customerApiKey = apiKeyRecord.keyId;
+    server.customerApiKey = customerApiKey;
 
     const activeIndex = server.activeConfigs.findIndex(
         (entry) => entry.configId.toString() === config._id.toString()

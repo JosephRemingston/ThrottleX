@@ -13,6 +13,36 @@ const getCustomerApiKey = (req) => {
     return keyId;
 };
 
+const getVersionIdSet = (versions = []) =>
+    new Set(
+        versions
+            .map((version) => version?.id?.trim())
+            .filter(Boolean)
+    );
+
+const validateRolloutPercentages = (rolloutPercentages, versionIds) => {
+    if (!Array.isArray(rolloutPercentages) || rolloutPercentages.length === 0) {
+        return;
+    }
+
+    const unknownRollout = rolloutPercentages.find(
+        (rollout) => !versionIds.has(rollout?.version?.trim?.())
+    );
+
+    if (unknownRollout) {
+        throw new ApiError(400, "rolloutPercentages reference versions that do not exist");
+    }
+
+    const totalPercentage = rolloutPercentages.reduce(
+        (sum, rollout) => sum + (typeof rollout?.percentage === "number" ? rollout.percentage : 0),
+        0
+    );
+
+    if (Math.abs(totalPercentage - 100) > 0.0001) {
+        throw new ApiError(400, "rolloutPercentages must sum to 100");
+    }
+};
+
 export const createConfig = asyncHandler(async (req, res) => {
     const customerApiKey = getCustomerApiKey(req);
     const { name, description, versions = [], rolloutPercentages = [], thresholds = {} } = req.body;
@@ -28,6 +58,8 @@ export const createConfig = asyncHandler(async (req, res) => {
     if (!Array.isArray(rolloutPercentages)) {
         throw new ApiError(400, "rolloutPercentages must be an array");
     }
+
+    validateRolloutPercentages(rolloutPercentages, getVersionIdSet(versions));
 
     const configPayload = {
         customerApiKey,
@@ -82,33 +114,29 @@ export const updateConfig = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Provide rolloutPercentages or thresholds to update");
     }
 
-    const updatePayload = {
-        updatedAt: new Date()
-    };
+    const config = await Config.findOne({ _id: configId, customerApiKey });
 
-    if (rolloutPercentages !== undefined) {
-        updatePayload.rolloutPercentages = rolloutPercentages;
-    }
-
-    if (thresholds.rollbackThreshold !== undefined) {
-        updatePayload.rollbackThreshold = thresholds.rollbackThreshold;
-    }
-
-    if (thresholds.advanceThreshold !== undefined) {
-        updatePayload.advanceThreshold = thresholds.advanceThreshold;
-    }
-
-    const updatedConfig = await Config.findOneAndUpdate(
-        { _id: configId, customerApiKey },
-        updatePayload,
-        { new: true, runValidators: true }
-    );
-
-    if (!updatedConfig) {
+    if (!config) {
         throw new ApiError(404, "Config not found");
     }
 
-    return ApiResponse.success(res, "Config updated successfully", { config: updatedConfig });
+    if (rolloutPercentages !== undefined) {
+        validateRolloutPercentages(rolloutPercentages, getVersionIdSet(config.versions));
+        config.rolloutPercentages = rolloutPercentages;
+    }
+
+    if (thresholds.rollbackThreshold !== undefined) {
+        config.rollbackThreshold = thresholds.rollbackThreshold;
+    }
+
+    if (thresholds.advanceThreshold !== undefined) {
+        config.advanceThreshold = thresholds.advanceThreshold;
+    }
+
+    config.updatedAt = new Date();
+    await config.save();
+
+    return ApiResponse.success(res, "Config updated successfully", { config });
 });
 
 export const deleteConfig = asyncHandler(async (req, res) => {

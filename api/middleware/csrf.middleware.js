@@ -4,6 +4,10 @@ const trustedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const csrfExemptPaths = new Set([
+  "/api/auth/register",
+  "/api/auth/login"
+]);
 
 const getRequestOrigin = (req) => {
   if (req.headers.origin) {
@@ -38,6 +42,17 @@ export const requireTrustedOriginForRefreshCookie = (req, res, next) => {
 export const verifyCsrfToken = (req, res, next) => {
   // Skip CSRF check for safe methods
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    return next();
+  }
+
+  const requestPath = (req.originalUrl || req.path || "").split("?")[0];
+
+  if (csrfExemptPaths.has(requestPath)) {
+    return next();
+  }
+
+  // Skip CSRF for server-to-server API key routes.
+  if (requestPath.startsWith("/api/poll") || requestPath.startsWith("/api/metrics")) {
     return next();
   }
 

@@ -12,6 +12,7 @@ import metricsRoutes from "./api/routes/config/metrics.routes.js";
 import { apiLimiter } from "./api/middleware/ratelimiter.middleware.js";
 import errorHandler from "./api/middleware/error.middleware.js";
 import { verifyCsrfToken } from "./api/middleware/csrf.middleware.js";
+import { startRolloutMonitor } from "./jobs/rolloutMonitor.js";
 
 validateEnv();
 
@@ -61,6 +62,7 @@ app.get('/', (req, res) => {
 const startServer = async () => {
     try {
         await connectDB();
+        startRolloutMonitor();
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
