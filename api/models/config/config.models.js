@@ -1,13 +1,13 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const versionSchema = new mongoose.Schema({
-  id: { type: String, required: true },  // e.g., "v1", "v2"
-  data: { type: Object, required: true }, // Actual config JSON
+  id: { type: String, required: true },
+  data: { type: Object, required: true },
   createdAt: { type: Date, default: Date.now }
 });
 
 const rolloutSchema = new mongoose.Schema({
-  version: { type: String, required: true },  // e.g., "v1"
+  version: { type: String, required: true },
   percentage: { type: Number, required: true, min: 0, max: 100 }
 });
 
@@ -27,14 +27,13 @@ const configSchema = new mongoose.Schema({
   
   rolloutPercentages: [rolloutSchema],
   
-  // Health check thresholds
-  rollbackThreshold: { 
+  rollbackThreshold: {
     type: Number, 
-    default: 5  // Rollback if error rate > 5%
+    default: 5
   },
   advanceThreshold: { 
     type: Number, 
-    default: 1  // Advance if error rate < 1%
+    default: 1
   },
   
   status: { 

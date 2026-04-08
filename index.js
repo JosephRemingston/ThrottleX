@@ -6,6 +6,9 @@ import { validateEnv } from './config/env.js';
 import authRoutes from "./api/routes/auth.routes.js";
 import tenantRoutes from "./api/routes/tenant.routes.js";
 import apiKeyRoutes from "./api/routes/apiKey.routes.js";
+import configRoutes from "./api/routes/config/config.routes.js";
+import pollRoutes from "./api/routes/config/poll.routes.js";
+import metricsRoutes from "./api/routes/config/metrics.routes.js";
 import { apiLimiter } from "./api/middleware/ratelimiter.middleware.js";
 import errorHandler from "./api/middleware/error.middleware.js";
 import { verifyCsrfToken } from "./api/middleware/csrf.middleware.js";
@@ -43,6 +46,9 @@ app.use(verifyCsrfToken);
 app.use("/api/auth" , authRoutes);
 app.use("/api/tenant", tenantRoutes);
 app.use("/api/apikey" , apiKeyRoutes);
+app.use("/api/config", configRoutes);
+app.use("/api/poll", pollRoutes);
+app.use("/api/metrics", metricsRoutes);
 
 app.use(errorHandler);
 
