@@ -41,6 +41,10 @@ describe("poll.controller", () => {
       expect.any(Object)
     );
     expect(res.status).toHaveBeenCalledWith(200);
+    // Add debug logs to identify bottlenecks
+    console.log("Request payload:", req);
+    console.log("Response status calls:", res.status.mock.calls);
+    console.log("Response JSON calls:", res.json.mock.calls);
   });
 
   test("registerServer returns 400 when serverId is missing", async () => {
@@ -60,6 +64,10 @@ describe("poll.controller", () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ message: "serverId is required" })
     );
+    // Add debug logs to identify bottlenecks
+    console.log("Request payload:", req);
+    console.log("Response status calls:", res.status.mock.calls);
+    console.log("Response JSON calls:", res.json.mock.calls);
   });
 
   test("pollConfig assigns version and updates server activeConfigs", async () => {
@@ -106,6 +114,10 @@ describe("poll.controller", () => {
         data: expect.objectContaining({ versionId: "v2" })
       })
     );
+    // Add debug logs to identify bottlenecks
+    console.log("Request payload:", req);
+    console.log("Response status calls:", res.status.mock.calls);
+    console.log("Response JSON calls:", res.json.mock.calls);
   });
 
   test("pollConfig creates a server record when the polling server is not registered yet", async () => {
@@ -152,6 +164,10 @@ describe("poll.controller", () => {
     );
     expect(createdServer.save).toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
+    // Add debug logs to identify bottlenecks
+    console.log("Request payload:", req);
+    console.log("Response status calls:", res.status.mock.calls);
+    console.log("Response JSON calls:", res.json.mock.calls);
   });
 
   test("pollConfig returns 404 when the assigned version is not found in config versions", async () => {
@@ -179,5 +195,52 @@ describe("poll.controller", () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ message: "Assigned config version not found" })
     );
+    // Add debug logs to identify bottlenecks
+    console.log("Request payload:", req);
+    console.log("Response status calls:", res.status.mock.calls);
+    console.log("Response JSON calls:", res.json.mock.calls);
+  });
+
+  // Adding edge case tests for invalid ObjectId and missing headers
+
+  test("pollConfig rejects invalid ObjectId", async () => {
+    jest.setTimeout(10000); // Set timeout to 10 seconds
+    const req = {
+      apiKey: { keyId: "key_abc" },
+      serverId: "srv-1",
+      params: { configName: "feature-flags" },
+      body: { configId: "invalid-id" }
+    };
+    const res = createRes();
+
+    await pollConfig(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Invalid ObjectId" })
+    );
+    // Add debug logs to identify bottlenecks
+    console.log("Request payload:", req);
+    console.log("Response status calls:", res.status.mock.calls);
+    console.log("Response JSON calls:", res.json.mock.calls);
+  });
+
+  test("pollConfig rejects requests without x-server-id header", async () => {
+    const req = {
+      apiKey: { keyId: "key_abc" },
+      params: { configName: "feature-flags" }
+    };
+    const res = createRes();
+
+    await pollConfig(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "x-server-id header is required" })
+    );
+    // Add debug logs to identify bottlenecks
+    console.log("Request payload:", req);
+    console.log("Response status calls:", res.status.mock.calls);
+    console.log("Response JSON calls:", res.json.mock.calls);
   });
 });

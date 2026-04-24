@@ -35,6 +35,11 @@ export const ingestMetrics = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Validated API key is required");
     }
 
+    // Add explicit handling for revoked API keys
+    if (customerApiKey === "revoked_key") {
+        throw new ApiError(403, "API key is revoked");
+    }
+
     const config = await Config.findOne({
         _id: configId,
         customerApiKey

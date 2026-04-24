@@ -101,6 +101,27 @@ describe("metrics.controller", () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  test("ingestMetrics rejects revoked API keys", async () => {
+    const req = {
+      serverId: "srv-1",
+      apiKey: { keyId: "revoked_key" },
+      body: {
+        configId: new mongoose.Types.ObjectId().toString(),
+        version: "v2"
+      }
+    };
+    const res = createRes();
+
+    jest.spyOn(Config, "findOne").mockResolvedValue(null);
+
+    await ingestMetrics(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "API key is revoked" })
+    );
+  });
+
   test("getAggregatedMetrics returns grouped metrics by version", async () => {
     const configId = new mongoose.Types.ObjectId().toString();
     const req = {

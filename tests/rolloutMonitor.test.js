@@ -169,4 +169,38 @@ describe("rolloutMonitor", () => {
       "database unavailable"
     );
   });
+
+  // Adding edge case tests for rollback triggers
+
+  test("scheduled iteration triggers rollback for high error rates", async () => {
+    const config = {
+      _id: new mongoose.Types.ObjectId(),
+      name: "feature-flags",
+      rollbackThreshold: 5,
+      advanceThreshold: 1,
+      rolloutPercentages: [
+        { version: "stable", percentage: 80 },
+        { version: "canary", percentage: 20 }
+      ],
+      save: jest.fn().mockResolvedValue(undefined)
+    };
+
+    metricAggregateMock.mockResolvedValue([
+      { version: "canary", averageErrorRate: 6 }
+    ]);
+
+    configFindMock.mockResolvedValue([config]);
+
+    await startRolloutMonitor();
+
+    expect(config.save).toHaveBeenCalled();
+    expect(config.rolloutPercentages).toEqual([
+      { version: "stable", percentage: 100 },
+      { version: "canary", percentage: 0 }
+    ]);
+
+    // Add debug logs to verify rollback logic
+    console.log("Mocked metrics:", metricAggregateMock.mock.calls);
+    console.log("Mocked configs:", configFindMock.mock.calls);
+  });
 });
