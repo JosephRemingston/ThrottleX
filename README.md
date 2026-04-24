@@ -72,13 +72,7 @@ See [SETUP.md](./SETUP.md) for detailed instructions.
 
 | Document | Purpose |
 |----------|---------|
-| **[SETUP.md](./SETUP.md)** | 📖 Local development setup with Docker Compose and manual configuration |
-| **[DEPLOYMENT.md](./DEPLOYMENT.md)** | 🚀 Production deployment (Docker, Kubernetes, ECS, Heroku) |
 | **[docs/API.md](./docs/API.md)** | 📋 Complete API reference with 20+ endpoints and examples |
-| **[CONTRIBUTING.md](./CONTRIBUTING.md)** | 👨‍💻 Development guidelines, code style, and workflow |
-| **[QUICKREF.md](./QUICKREF.md)** | ⚡ Quick command reference and troubleshooting |
-| **[IMPROVEMENTS.md](./IMPROVEMENTS.md)** | ✨ Summary of all production improvements |
-| **[CHECKLIST.md](./CHECKLIST.md)** | ✅ Production readiness checklist |
 
 ---
 
@@ -198,8 +192,6 @@ AWS_SES_SOURCE_EMAIL=noreply@example.com
 openssl rand -hex 32  # For token secrets
 ```
 
-See [SETUP.md](./SETUP.md) for complete environment configuration.
-
 ---
 
 ## 🧪 Testing
@@ -237,15 +229,6 @@ Test coverage includes:
 docker build -t throttlex:1.0.0 .
 docker run -p 3000:3000 throttlex:1.0.0
 ```
-
-### Kubernetes
-See [DEPLOYMENT.md](./DEPLOYMENT.md#kubernetes-deployment) for manifests and configuration.
-
-### ECS/Fargate
-See [DEPLOYMENT.md](./DEPLOYMENT.md#3-aws-elastic-container-service-ecs) for task definitions.
-
-### Heroku
-See [DEPLOYMENT.md](./DEPLOYMENT.md#4-heroku-deployment) for setup steps.
 
 ---
 
